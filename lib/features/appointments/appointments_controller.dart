@@ -1,21 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/appointment.dart';
 import '../../storage/appointments_local_repo_provider.dart';
+import '../../utils/overlaps.dart';
+import '../blocks/time_blocks_controller.dart';
 
 class AppointmentsController extends AsyncNotifier<List<Appointment>> {
   @override
   Future<List<Appointment>> build() async {
     final repo = ref.read(appointmentsLocalRepoProvider);
     return repo.load();
-  }
-
-  bool _overlaps(
-    DateTime aStart,
-    DateTime aEnd,
-    DateTime bStart,
-    DateTime bEnd,
-  ) {
-    return aStart.isBefore(bEnd) && aEnd.isAfter(bStart);
   }
 
   Future<bool> add(Appointment a) async {
@@ -25,21 +18,23 @@ class AppointmentsController extends AsyncNotifier<List<Appointment>> {
     final aStart = a.dateTime;
     final aEnd = a.endDateTime;
 
-    bool hasConflict = current.any((b) {
-      final bStart = b.dateTime;
-      final bEnd = b.endDateTime;
-      return _overlaps(aStart, aEnd, bStart, bEnd);
+    // 1) Conflicto con otros turnos
+    final hasApptConflict = current.any((b) {
+      return overlaps(aStart, aEnd, b.dateTime, b.endDateTime);
     });
+    if (hasApptConflict) return false;
 
-    if (hasConflict) return false;
+    // 2) Conflicto con bloqueos (aseguramos que estén cargados)
+    final blocks = await ref.read(timeBlocksProvider.future);
+    final hasBlockConflict = blocks.any((b) {
+      return overlaps(aStart, aEnd, b.start, b.end);
+    });
+    if (hasBlockConflict) return false;
 
-    final updated = [...current, a]
-      ..sort((x, y) => x.dateTime.compareTo(y.dateTime));
-
+    final updated = [...current, a]..sort((x, y) => x.dateTime.compareTo(y.dateTime));
     state = AsyncData(updated);
     await repo.save(updated);
     return true;
-
   }
 
   Future<void> removeById(String id) async {
