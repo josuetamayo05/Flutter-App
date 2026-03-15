@@ -5,26 +5,27 @@ import 'package:intl/intl.dart';
 import '../../models/appointment.dart';
 import '../../models/services_provider.dart';
 import 'appointments_controller.dart';
+import '../settings/work_hours_controller.dart';
 
 class CreateAppointmentScreen extends ConsumerStatefulWidget {
-  const CreateAppointmentScreen({super.key});
+  final DateTime? initialDay;
+  const CreateAppointmentScreen({super.key, this.initialDay});
 
   @override
   ConsumerState<CreateAppointmentScreen> createState() =>
       _CreateAppointmentScreenState();
 }
 
-class _CreateAppointmentScreenState extends ConsumerState<CreateAppointmentScreen> {
+class _CreateAppointmentScreenState
+    extends ConsumerState<CreateAppointmentScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameCtrl = TextEditingController();
 
   String? _serviceId;
-  DateTime? _selectedDay;       // solo fecha (sin hora)
-  DateTime? _selectedDateTime;  // fecha + hora (slot)
+  DateTime? _selectedDay; // solo fecha (sin hora)
+  DateTime? _selectedDateTime; // fecha + hora (slot)
 
   static const _slotStepMinutes = 30;
-  static const _openHour = 9;
-  static const _closeHour = 18;
 
   @override
   void dispose() {
@@ -32,12 +33,24 @@ class _CreateAppointmentScreenState extends ConsumerState<CreateAppointmentScree
     super.dispose();
   }
 
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialDay != null) {
+      _selectedDay = DateTime(widget.initialDay!.year, widget.initialDay!.month, widget.initialDay!.day);
+    }
+  }
+
   Future<void> _pickDay() async {
     final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
       firstDate: DateTime(now.year, now.month, now.day),
-      lastDate: DateTime(now.year, now.month, now.day).add(const Duration(days: 365)),
+      lastDate: DateTime(
+        now.year,
+        now.month,
+        now.day,
+      ).add(const Duration(days: 365)),
       initialDate: DateTime(now.year, now.month, now.day),
     );
     if (picked == null) return;
@@ -52,18 +65,27 @@ class _CreateAppointmentScreenState extends ConsumerState<CreateAppointmentScree
     required DateTime day,
     required int durationMinutes,
     required List<Appointment> existing,
+    required int openHour,
+    required int closeHour,
   }) {
-    final open = DateTime(day.year, day.month, day.day, _openHour, 0);
-    final close = DateTime(day.year, day.month, day.day, _closeHour, 0);
+    final open = DateTime(day.year, day.month, day.day, openHour, 0);
+    final close = DateTime(day.year, day.month, day.day, closeHour, 0);
 
-    bool overlaps(DateTime aStart, DateTime aEnd, DateTime bStart, DateTime bEnd) {
+    bool overlaps(
+      DateTime aStart,
+      DateTime aEnd,
+      DateTime bStart,
+      DateTime bEnd,
+    ) {
       return aStart.isBefore(bEnd) && aEnd.isAfter(bStart);
     }
 
     final slots = <DateTime>[];
-    for (var t = open;
-        !t.add(Duration(minutes: durationMinutes)).isAfter(close);
-        t = t.add(const Duration(minutes: _slotStepMinutes))) {
+    for (
+      var t = open;
+      !t.add(Duration(minutes: durationMinutes)).isAfter(close);
+      t = t.add(const Duration(minutes: _slotStepMinutes))
+    ) {
       final tEnd = t.add(Duration(minutes: durationMinutes));
 
       final conflict = existing.any((b) {
@@ -115,6 +137,7 @@ class _CreateAppointmentScreenState extends ConsumerState<CreateAppointmentScree
   @override
   Widget build(BuildContext context) {
     final services = ref.watch(servicesProvider);
+    final workHours = ref.watch(workHoursProvider);
     final appointmentsAsync = ref.watch(appointmentsProvider);
     final dfDay = DateFormat('yyyy-MM-dd');
     final dfTime = DateFormat('HH:mm');
@@ -139,6 +162,8 @@ class _CreateAppointmentScreenState extends ConsumerState<CreateAppointmentScree
                         a.dateTime.month == _selectedDay!.month &&
                         a.dateTime.day == _selectedDay!.day;
                   }).toList(),
+                  openHour: workHours.openHour,
+                  closeHour: workHours.closeHour,
                 )
               : <DateTime>[];
 
@@ -151,8 +176,11 @@ class _CreateAppointmentScreenState extends ConsumerState<CreateAppointmentScree
                 children: [
                   TextFormField(
                     controller: _nameCtrl,
-                    decoration: const InputDecoration(labelText: 'Nombre del cliente'),
-                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Requerido' : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Nombre del cliente',
+                    ),
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? 'Requerido' : null,
                   ),
                   const SizedBox(height: 12),
 
@@ -160,10 +188,12 @@ class _CreateAppointmentScreenState extends ConsumerState<CreateAppointmentScree
                     value: _serviceId,
                     decoration: const InputDecoration(labelText: 'Servicio'),
                     items: services
-                        .map((s) => DropdownMenuItem(
-                              value: s.id,
-                              child: Text('${s.name} (${s.durationMinutes} min)'),
-                            ))
+                        .map(
+                          (s) => DropdownMenuItem(
+                            value: s.id,
+                            child: Text('${s.name} (${s.durationMinutes} min)'),
+                          ),
+                        )
                         .toList(),
                     onChanged: (v) {
                       setState(() {
@@ -186,7 +216,7 @@ class _CreateAppointmentScreenState extends ConsumerState<CreateAppointmentScree
                       TextButton(
                         onPressed: _pickDay,
                         child: const Text('Elegir día'),
-                      )
+                      ),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -210,7 +240,9 @@ class _CreateAppointmentScreenState extends ConsumerState<CreateAppointmentScree
                     ),
                     if (slots.isEmpty) ...[
                       const SizedBox(height: 8),
-                      const Text('No hay horarios disponibles para ese día/servicio.'),
+                      const Text(
+                        'No hay horarios disponibles para ese día/servicio.',
+                      ),
                     ],
                   ],
 

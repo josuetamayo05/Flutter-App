@@ -13,7 +13,15 @@ class AppointmentsScreen extends ConsumerWidget {
     final itemsAsync = ref.watch(appointmentsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Turnos')),
+      appBar: AppBar(
+        title: const Text('Turnos'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: () => context.go('/settings'),
+          )
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => context.go('/create'),
         child: const Icon(Icons.add),
