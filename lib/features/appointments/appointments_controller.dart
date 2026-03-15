@@ -24,10 +24,22 @@ class AppointmentsController extends AsyncNotifier<List<Appointment>> {
 
     final aStart = a.dateTime;
     final aEnd = a.endDateTime;
-    
-    final updated = [...current, a];
+
+    bool hasConflict = current.any((b) {
+      final bStart = b.dateTime;
+      final bEnd = b.endDateTime;
+      return _overlaps(aStart, aEnd, bStart, bEnd);
+    });
+
+    if (hasConflict) return false;
+
+    final updated = [...current, a]
+      ..sort((x, y) => x.dateTime.compareTo(y.dateTime));
+
     state = AsyncData(updated);
     await repo.save(updated);
+    return true;
+
   }
 
   Future<void> removeById(String id) async {
