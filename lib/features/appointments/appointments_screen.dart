@@ -9,8 +9,7 @@ class AppointmentsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final items = ref.watch(appointmentsProvider);
-    final df = DateFormat('yyyy-MM-dd HH:mm');
+    final itemsAsync = ref.watch(appointmentsProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Turnos')),
@@ -18,25 +17,33 @@ class AppointmentsScreen extends ConsumerWidget {
         onPressed: () => context.go('/create'),
         child: const Icon(Icons.add),
       ),
-      body: items.isEmpty
-          ? const Center(child: Text('No hay turnos aún. Crea el primero.'))
-          : ListView.separated(
-              itemCount: items.length,
-              separatorBuilder: (_, __) => const Divider(height: 1),
-              itemBuilder: (context, i) {
-                final a = items[i];
-                return ListTile(
-                  title: Text('${a.clientName} • ${a.service}'),
-                  subtitle: Text(df.format(a.dateTime)),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.delete_outline),
-                    onPressed: () => ref
-                        .read(appointmentsProvider.notifier)
-                        .removeById(a.id),
-                  ),
-                );
-              },
-            ),
+      body: itemsAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(child: Text('Error: $e')),
+        data: (items) {
+          final df = DateFormat('yyyy-MM-dd HH:mm');
+          if (items.isEmpty) {
+            return const Center(child: Text('No hay turnos aún. Crea el primero.'));
+          }
+          return ListView.separated(
+            itemCount: items.length,
+            separatorBuilder: (_, __) => const Divider(height: 1),
+            itemBuilder: (context, i) {
+              final a = items[i];
+              return ListTile(
+                title: Text('${a.clientName} • ${a.serviceId}'),
+                subtitle: Text(df.format(a.dateTime)),
+                trailing: IconButton(
+                  icon: const Icon(Icons.delete_outline),
+                  onPressed: () => ref
+                      .read(appointmentsProvider.notifier)
+                      .removeById(a.id),
+                ),
+              );
+            },
+          );
+        },
+      ),
     );
   }
 }

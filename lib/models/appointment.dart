@@ -1,27 +1,31 @@
 class Appointment {
   final String id;
   final String clientName;
-  final String service;
+  final String serviceId;
+  final int durationMinutes;
   final DateTime dateTime;
 
   const Appointment({
     required this.id,
     required this.clientName,
-    required this.service,
+    required this.serviceId,
+    required this.durationMinutes,
     required this.dateTime,
   });
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'clientName': clientName,
-        'service': service,
-        'dateTime': dateTime.toIso8601String(),
-      };
+    'id': id,
+    'clientName': clientName,
+    'service': serviceId,
+    'durationMinutes': durationMinutes, 
+    'dateTime': dateTime.toIso8601String(),
+  };
 
   factory Appointment.fromJson(Map<String, dynamic> json) => Appointment(
-        id: json['id'] as String,
-        clientName: json['clientName'] as String,
-        service: json['service'] as String,
-        dateTime: DateTime.parse(json['dateTime'] as String),
-      );
+    id: json['id'] as String,
+    clientName: json['clientName'] as String,
+    serviceId: json['service'] as String,
+    durationMinutes: json['durationMinutes'] as int,
+    dateTime: DateTime.parse(json['dateTime'] as String),
+  );
 }

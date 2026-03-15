@@ -17,6 +17,7 @@ class _CreateAppointmentScreenState
   final _formKey = GlobalKey<FormState>();
   final _nameCtrl = TextEditingController();
   final _serviceCtrl = TextEditingController();
+  final _durationMinutesCtrl = TextEditingController();
   DateTime? _dateTime;
 
   @override
@@ -54,19 +55,20 @@ class _CreateAppointmentScreenState
     });
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (_dateTime == null) return;
 
     final a = Appointment(
       id: DateTime.now().microsecondsSinceEpoch.toString(),
       clientName: _nameCtrl.text.trim(),
-      service: _serviceCtrl.text.trim(),
+      serviceId: _serviceCtrl.text.trim(),
+      durationMinutes: _durationMinutesCtrl.text.trim() as int,
       dateTime: _dateTime!,
     );
 
-    ref.read(appointmentsProvider.notifier).add(a);
-    context.pop();
+    await ref.read(appointmentsProvider.notifier).add(a);
+    if (mounted) context.pop();
   }
 
   @override
@@ -81,7 +83,9 @@ class _CreateAppointmentScreenState
             children: [
               TextFormField(
                 controller: _nameCtrl,
-                decoration: const InputDecoration(labelText: 'Nombre del cliente'),
+                decoration: const InputDecoration(
+                  labelText: 'Nombre del cliente',
+                ),
                 validator: (v) =>
                     (v == null || v.trim().isEmpty) ? 'Requerido' : null,
               ),
@@ -106,7 +110,7 @@ class _CreateAppointmentScreenState
                   TextButton(
                     onPressed: _pickDateTime,
                     child: const Text('Elegir'),
-                  )
+                  ),
                 ],
               ),
               const Spacer(),
@@ -116,7 +120,7 @@ class _CreateAppointmentScreenState
                   onPressed: _submit,
                   child: const Text('Guardar'),
                 ),
-              )
+              ),
             ],
           ),
         ),

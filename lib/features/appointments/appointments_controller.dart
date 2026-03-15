@@ -1,20 +1,45 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/appointment.dart';
+import '../../storage/appointments_local_repo_provider.dart';
 
-class AppointmentsController extends Notifier<List<Appointment>> {
+class AppointmentsController extends AsyncNotifier<List<Appointment>> {
   @override
-  List<Appointment> build() => [];
-
-  void add(Appointment a) {
-    state = [...state, a];
+  Future<List<Appointment>> build() async {
+    final repo = ref.read(appointmentsLocalRepoProvider);
+    return repo.load();
   }
 
-  void removeById(String id) {
-    state = state.where((x) => x.id != id).toList();
+  bool _overlaps(
+    DateTime aStart,
+    DateTime aEnd,
+    DateTime bStart,
+    DateTime bEnd,
+  ) {
+    return aStart.isBefore(bEnd) && aEnd.isAfter(bStart);
+  }
+
+  Future<bool> add(Appointment a) async {
+    final repo = ref.read(appointmentsLocalRepoProvider);
+    final current = state.value ?? [];
+
+    final aStart = a.dateTime;
+    final aEnd = a.endDateTime;
+    
+    final updated = [...current, a];
+    state = AsyncData(updated);
+    await repo.save(updated);
+  }
+
+  Future<void> removeById(String id) async {
+    final repo = ref.read(appointmentsLocalRepoProvider);
+    final current = state.value ?? [];
+    final updated = current.where((x) => x.id != id).toList();
+    state = AsyncData(updated);
+    await repo.save(updated);
   }
 }
 
 final appointmentsProvider =
-    NotifierProvider<AppointmentsController, List<Appointment>>(
-  AppointmentsController.new,
-);
+    AsyncNotifierProvider<AppointmentsController, List<Appointment>>(
+      AppointmentsController.new,
+    );
