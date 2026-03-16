@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'work_hours_controller.dart';
+import 'package:go_router/go_router.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -76,6 +77,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 onPressed: (_openHour == null || _closeHour == null) ? null : _save,
                 child: const Text('Guardar'),
               ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.repeat),
+              title: const Text('Bloqueos recurrentes'),
+              subtitle: const Text('Ej: almuerzo Lun–Vie'),
+              onTap: () => context.go('/recurring'),
             ),
           ],
         ),

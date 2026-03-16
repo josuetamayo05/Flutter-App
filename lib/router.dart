@@ -5,6 +5,8 @@ import 'features/appointments/appointments_screen.dart';
 import 'features/appointments/create_appointment_screen.dart';
 import 'features/settings/settings_screen.dart';
 import 'features/blocks/create_block_screen.dart';
+import 'features/blocks/recurring_blocks_screen.dart';
+import 'features/blocks/create_recurring_block_screen.dart';
 
 final router = GoRouter(
   routes: [
@@ -35,6 +37,14 @@ final router = GoRouter(
             final initialDay = dayStr == null ? null : DateTime.parse(dayStr);
             return CreateBlockScreen(initialDay: initialDay);
           },
+        ),
+        GoRoute(
+          path: 'recurring',
+          builder: (_, __) => const RecurringBlocksScreen(),
+        ),
+        GoRoute(
+          path: 'recurring/create',
+          builder: (_, __) => const CreateRecurringBlockScreen(),
         ),
       ],
     ),
