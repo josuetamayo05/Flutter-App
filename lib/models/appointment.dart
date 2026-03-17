@@ -18,7 +18,7 @@ class Appointment {
   Map<String, dynamic> toJson() => {
     'id': id,
     'clientName': clientName,
-    'service': serviceId,
+    'serviceId': serviceId,
     'durationMinutes': durationMinutes, 
     'dateTime': dateTime.toIso8601String(),
   };
@@ -26,7 +26,7 @@ class Appointment {
   factory Appointment.fromJson(Map<String, dynamic> json) => Appointment(
     id: json['id'] as String,
     clientName: json['clientName'] as String,
-    serviceId: json['service'] as String,
+    serviceId: json['serviceId'] as String,
     durationMinutes: json['durationMinutes'] as int,
     dateTime: DateTime.parse(json['dateTime'] as String),
   );

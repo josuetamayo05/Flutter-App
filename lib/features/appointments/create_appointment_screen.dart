@@ -112,18 +112,25 @@ class _CreateAppointmentScreenState
       dateTime: _selectedDateTime!,
     );
 
-    final ok = await ref.read(appointmentsProvider.notifier).add(a);
+    try {
+      final ok = await ref.read(appointmentsProvider.notifier).add(a);
+      if (!mounted) return;
 
-    if (!mounted) return;
+      if (!ok) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Ese horario ya está ocupado')),
+        );
+        return;
+      }
 
-    if (!ok) {
+      context.pop();
+    } catch (_) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ese horario ya está ocupado')),
+        const SnackBar(content: Text('No se pudo sincronizar con el servidor')),
       );
-      return;
     }
 
-    context.pop();
   }
 
   @override
