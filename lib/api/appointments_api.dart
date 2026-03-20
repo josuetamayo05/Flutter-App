@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import '../models/appointment.dart';
+import '../../models/appointment.dart';
 
 class AppointmentsApi {
   final Dio dio;

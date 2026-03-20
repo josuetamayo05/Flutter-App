@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-
+import 'package:dio/dio.dart';
 import '../../models/appointment.dart';
 import '../../utils/overlaps.dart';
 import '../blocks/time_blocks_controller.dart';
@@ -124,11 +124,13 @@ class _CreateAppointmentScreenState
       }
 
       context.pop();
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No se pudo sincronizar con el servidor')),
-      );
+    } on DioException catch (e) {
+      debugPrint('TYPE: ${e.type}');
+      debugPrint('MESSAGE: ${e.message}');
+      debugPrint('ERROR: ${e.error}');
+      debugPrint('STATUS: ${e.response?.statusCode}');
+      debugPrint('RESP DATA: ${e.response?.data}');
+      debugPrint('SENT JSON: ${a.toJson()}');
     }
 
   }

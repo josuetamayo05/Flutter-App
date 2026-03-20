@@ -1,17 +1,19 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import List
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import SQLModel, Field, create_engine, Session, select
 
+
 class Appointment(SQLModel, table=True):
-    id: str=Field(primary_key=True)
-    client_name:str
-    service_id:str
-    duration_minutes:int
-    dateTime:datetime
-    
+    id: str = Field(primary_key=True)
+    clientName: str
+    serviceId: str
+    durationMinutes: int
+    dateTime: datetime
+
+
 class AppointmentCreate(SQLModel):
     id: str
     clientName: str
@@ -19,22 +21,25 @@ class AppointmentCreate(SQLModel):
     durationMinutes: int
     dateTime: datetime
 
+
 DATABASE_URL = "sqlite:///./app.db"
 engine = create_engine(DATABASE_URL, echo=False)
+
 
 def create_db():
     SQLModel.metadata.create_all(engine)
 
+
 app = FastAPI(title="Turnos API")
 
-# CORS para que Flutter Web (localhost) pueda llamar al backend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # en producción se restringe
-    allow_credentials=True,
+    allow_origin_regex=r"^http://(localhost|127\.0\.0\.1):\d+$",
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 @app.on_event("startup")
 def on_startup():
@@ -56,12 +61,15 @@ def create_appointment(payload: AppointmentCreate):
         if exists:
             raise HTTPException(status_code=409, detail="Appointment id already exists")
 
-        item = Appointment.model_validate(payload)
+        # Construimos el modelo DB usando exactamente los mismos campos (camelCase)
+        item = Appointment(**payload.model_dump())
+
         session.add(item)
         session.commit()
         session.refresh(item)
         return item
-    
+
+
 @app.delete("/appointments/{appointment_id}")
 def delete_appointment(appointment_id: str):
     with Session(engine) as session:
