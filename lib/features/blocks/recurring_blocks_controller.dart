@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import '../../api/recurring_blocks_api_provider.dart';
 import '../../models/recurring_block.dart';
 import '../../storage/recurring_blocks_local_repo_provider.dart';

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'work_hours_controller.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../auth/auth_controller.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -83,6 +85,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               title: const Text('Bloqueos recurrentes'),
               subtitle: const Text('Ej: almuerzo Lun–Vie'),
               onTap: () => context.go('/recurring'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.logout),
+              title: const Text('Cerrar sesión'),
+              onTap: () => ref.read(authProvider.notifier).logout(),
             ),
           ],
         ),
