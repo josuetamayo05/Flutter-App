@@ -12,9 +12,10 @@ from sqlmodel import SQLModel, Field, create_engine, Session, select
 from sqlalchemy import Column
 from sqlalchemy.types import JSON
 
+import os
 
 # -------------------- Auth config --------------------
-SECRET_KEY = "CAMBIA_ESTO_POR_ALGO_LARGO_Y_RANDOM"
+SECRET_KEY = os.getenv("SECRET_KEY", "1234")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24
 
@@ -37,7 +38,7 @@ def create_access_token(user_id: str) -> str:
 
 
 # -------------------- DB --------------------
-DATABASE_URL = "sqlite:///./app.db"
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./app.db")
 engine = create_engine(DATABASE_URL, echo=False)
 
 
