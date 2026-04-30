@@ -1,0 +1,2 @@
+const supabaseUrl = "https://zeondmjjbblhsjauylfj.supabase.co";
+const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inplb25kbWpqYmJsaHNqYXV5bGZqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczODM3MjcsImV4cCI6MjA5Mjk1OTcyN30.20d4kDc_sseUUy6RigdoYH2fr6o49O8v83BxBDVvY7Q";

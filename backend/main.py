@@ -12,6 +12,9 @@ from sqlmodel import SQLModel, Field, create_engine, Session, select
 from sqlalchemy import Column
 from sqlalchemy.types import JSON
 
+from dotenv import load_dotenv
+load_dotenv()
+
 import os
 
 # -------------------- Auth config --------------------
@@ -22,6 +25,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 auth_scheme = HTTPBearer()
 
+api=https://zeondmjjbblhsjauylfj.supabase.co/rest/v1/
 
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)
@@ -129,13 +133,20 @@ class RecurringBlockActiveUpdate(SQLModel):
 # -------------------- App --------------------
 app = FastAPI(title="Turnos API")
 
+FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN")
+allow_origins=[]
+if FRONTEND_ORIGIN:
+    allow_origins.append(FRONTEND_ORIGIN)
+
 app.add_middleware(
     CORSMiddleware,
+    allow_origins=allow_origins,
     allow_origin_regex=r"^http://(localhost|127\.0\.0\.1):\d+$",
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 
 @app.on_event("startup")
@@ -290,7 +301,7 @@ def create_recurring_block(payload: RecurringBlockCreate, current: User = Depend
             raise HTTPException(status_code=409, detail="RecurringBlock id already exists")
 
         item = RecurringBlock(**payload.model_dump(), userId=current.id)
-        session.add(item)
+        session.add(item) 
         session.commit()
         session.refresh(item)
         return item
@@ -299,7 +310,7 @@ def create_recurring_block(payload: RecurringBlockCreate, current: User = Depend
 @app.patch("/recurring-blocks/{block_id}", response_model=RecurringBlock)
 def set_recurring_block_active(
     block_id: str,
-    payload: RecurringBlockActiveUpdate,
+    payload: RecurringBlockActiveUpdate,   
     current: User = Depends(get_current_user),
 ):
     with Session(engine) as session:

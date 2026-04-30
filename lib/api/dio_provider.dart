@@ -17,7 +17,7 @@ final dioProvider = Provider<Dio>((ref) {
   dio.interceptors.add(
     InterceptorsWrapper(
       onRequest: (options, handler) {
-        if (token != null && token.isNotEmpty) {
+        if (token != null && token.isExpired) {
           options.headers['Authorization'] = 'Bearer $token';
         }
         handler.next(options);

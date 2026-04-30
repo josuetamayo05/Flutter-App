@@ -13,6 +13,7 @@ class Appointment {
     required this.dateTime,
   });
 
+
   DateTime get endDateTime => dateTime.add(Duration(minutes: durationMinutes));
   
   Map<String, dynamic> toJson() => {

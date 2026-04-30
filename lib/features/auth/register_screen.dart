@@ -22,32 +22,36 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   }
 
   Future<void> _submit() async {
-    await ref.read(authProvider.notifier).register(
-          _email.text.trim(),
-          _pass.text,
-        );
+    await ref
+        .read(authProvider.notifier)
+        .register(_email.text.trim(), _pass.text);
     if (mounted) context.go('/');
   }
 
   @override
   Widget build(BuildContext context) {
     final auth = ref.watch(authProvider);
-
+    
     ref.listen(authProvider, (_, next) {
       next.whenOrNull(
-        error: (e, _) => ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        ),
+        error: (e, _) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e')),
+          );
+        },
       );
     });
-
+  
     return Scaffold(
       appBar: AppBar(title: const Text('Crear cuenta')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            TextField(controller: _email, decoration: const InputDecoration(labelText: 'Email')),
+            TextField(
+              controller: _email,
+              decoration: const InputDecoration(labelText: 'Email'),
+            ),
             const SizedBox(height: 12),
             TextField(
               controller: _pass,
@@ -59,13 +63,15 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               width: double.infinity,
               child: FilledButton(
                 onPressed: auth.isLoading ? null : _submit,
-                child: auth.isLoading ? const Text('Cargando...') : const Text('Registrarme'),
+                child: auth.isLoading
+                    ? const Text('Cargando...')
+                    : const Text('Registrarme'),
               ),
             ),
             TextButton(
               onPressed: () => context.go('/login'),
               child: const Text('Ya tengo cuenta'),
-            )
+            ),
           ],
         ),
       ),
