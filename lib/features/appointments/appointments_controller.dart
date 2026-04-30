@@ -1,51 +1,53 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../models/appointment.dart';
 import '../../storage/appointments_local_repo_provider.dart';
 import '../../utils/overlaps.dart';
 import '../blocks/time_blocks_controller.dart';
-import '../blocks/recurring_blocks_controller.dart';
-import '../../api/appointments_api_provider.dart';
+import '../blocks/recurring_blocks_supabase_repo_provider.dart';
+import 'appointments_supabase_repo_provider.dart';
 
 class AppointmentsController extends AsyncNotifier<List<Appointment>> {
   @override
   Future<List<Appointment>> build() async {
     final local = ref.read(appointmentsLocalRepoProvider);
-    final api = ref.read(appointmentsApiProvider);
+    final repo = ref.read(appointmentsSupabaseRepoProvider);
 
     try {
-      final remoteItems = await api.fetchAll();
-      await local.save(remoteItems);
-      return remoteItems;
+      final remote = await repo.fetchAll();
+      await local.save(remote);
+      return remote;
     } catch (_) {
-      // si falla internet/servidor, usamos cache local
+      // fallback offline
       return local.load();
     }
   }
 
   Future<bool> add(Appointment a) async {
     final localRepo = ref.read(appointmentsLocalRepoProvider);
-    final api = ref.read(appointmentsApiProvider);
+    final repo = ref.read(appointmentsSupabaseRepoProvider);
 
     final current = state.value ?? [];
 
     final aStart = a.dateTime;
     final aEnd = a.endDateTime;
 
-    // 1) Conflicto con turnos
+    // 1) Conflicto con turnos (local state)
     final hasApptConflict = current.any((b) {
       return overlaps(aStart, aEnd, b.dateTime, b.endDateTime);
     });
     if (hasApptConflict) return false;
 
-    // 2) Conflicto con bloqueos puntuales
+    // 2) Conflicto con bloqueos puntuales (provider async)
     final blocks = await ref.read(timeBlocksProvider.future);
     final hasBlockConflict = blocks.any((b) {
       return overlaps(aStart, aEnd, b.start, b.end);
     });
     if (hasBlockConflict) return false;
 
-    // 3) Conflicto con recurrentes
-    final recurring = ref.read(recurringBlocksProvider);
+    // 3) Conflicto con recurrentes (traemos de Supabase para estar seguros)
+    final recurringRepo = ref.read(recurringBlocksSupabaseRepoProvider);
+    final recurring = await recurringRepo.fetchAll();
     final hasRecurringConflict = recurring.any((r) {
       if (!r.active) return false;
       if (!r.weekdays.contains(aStart.weekday)) return false;
@@ -57,7 +59,7 @@ class AppointmentsController extends AsyncNotifier<List<Appointment>> {
     });
     if (hasRecurringConflict) return false;
 
-    // --- Optimistic update + rollback si falla backend ---
+    // optimistic update
     final previous = current;
     final updated = [...current, a]..sort((x, y) => x.dateTime.compareTo(y.dateTime));
 
@@ -65,18 +67,19 @@ class AppointmentsController extends AsyncNotifier<List<Appointment>> {
     await localRepo.save(updated);
 
     try {
-      await api.create(a);
+      await repo.create(a); // <-- Supabase insert
       return true;
     } catch (e) {
+      // rollback
       state = AsyncData(previous);
       await localRepo.save(previous);
-      rethrow; // para que la UI muestre un mensaje
+      rethrow;
     }
   }
 
   Future<void> removeById(String id) async {
     final localRepo = ref.read(appointmentsLocalRepoProvider);
-    final api = ref.read(appointmentsApiProvider);
+    final repo = ref.read(appointmentsSupabaseRepoProvider);
 
     final current = state.value ?? [];
     final previous = current;
@@ -86,7 +89,7 @@ class AppointmentsController extends AsyncNotifier<List<Appointment>> {
     await localRepo.save(updated);
 
     try {
-      await api.deleteById(id);
+      await repo.deleteById(id);
     } catch (_) {
       state = AsyncData(previous);
       await localRepo.save(previous);
@@ -97,5 +100,5 @@ class AppointmentsController extends AsyncNotifier<List<Appointment>> {
 
 final appointmentsProvider =
     AsyncNotifierProvider<AppointmentsController, List<Appointment>>(
-      AppointmentsController.new,
-    );
+  AppointmentsController.new,
+);

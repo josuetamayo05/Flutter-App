@@ -8,19 +8,8 @@ import 'supabase/supabase_config.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  print('URL: $supabaseUrl');
-  print('KEY startsWith eyJ: ${supabaseAnonKey.startsWith("eyJ")}');
-  print('KEY length: ${supabaseAnonKey.length}');
-  if (supabaseUrl.isEmpty || supabaseAnonKey.isEmpty) {
-    throw StateError(
-      'FALTAN DEFINES: SUPABASE_URL o SUPABASE_ANON_KEY. '
-      'url="$supabaseUrl" anonKeyLength=${supabaseAnonKey.length}',
-    );
-  }
-  await Supabase.initialize(
-    url: supabaseUrl,
-    anonKey: supabaseAnonKey,
-  );
+
+  await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
 
   final prefs = await SharedPreferences.getInstance();
 

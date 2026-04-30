@@ -24,4 +24,23 @@ class TimeBlock {
         start: DateTime.parse(json['start'] as String),
         end: DateTime.parse(json['end'] as String),
       );
+      
+  static DateTime _parseDate(dynamic v) {
+    if (v is DateTime) return v;
+    return DateTime.parse(v as String);
+  }
+
+  Map<String, dynamic> toSupabase() => {
+        'id': id,
+        'title': title,
+        'starts_at': start.toIso8601String(),
+        'ends_at': end.toIso8601String(),
+      };
+
+  factory TimeBlock.fromSupabase(Map<String, dynamic> row) => TimeBlock(
+        id: row['id'] as String,
+        title: row['title'] as String,
+        start: _parseDate(row['starts_at']),
+        end: _parseDate(row['ends_at']),
+      );
 }

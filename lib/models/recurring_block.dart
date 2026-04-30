@@ -37,4 +37,22 @@ class RecurringBlock {
     durationMinutes: json['durationMinutes'] as int,
     active: (json['active'] as bool?) ?? true,
   );
+
+  Map<String, dynamic> toSupabase() => {
+    'id': id,
+    'title': title,
+    'weekdays': weekdays,
+    'start_minutes': startMinutes,
+    'duration_minutes': durationMinutes,
+    'active': active,
+  };
+
+  factory RecurringBlock.fromSupabase(Map<String, dynamic> row) => RecurringBlock(
+    id: row['id'] as String,
+    title: row['title'] as String,
+    weekdays: (row['weekdays'] as List).map((e) => e as int).toList(),
+    startMinutes: row['start_minutes'] as int,
+    durationMinutes: row['duration_minutes'] as int,
+    active: row['active'] as bool,
+  );
 }

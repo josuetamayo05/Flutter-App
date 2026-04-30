@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../api/recurring_blocks_api_provider.dart';
 import '../../models/recurring_block.dart';
 import '../../storage/recurring_blocks_local_repo_provider.dart';
+import 'recurring_blocks_supabase_repo_provider.dart';
 
 class RecurringBlocksController extends Notifier<List<RecurringBlock>> {
   @override
@@ -10,11 +10,11 @@ class RecurringBlocksController extends Notifier<List<RecurringBlock>> {
     final cached = local.load()
       ..sort((a, b) => a.startMinutes.compareTo(b.startMinutes));
 
-    // Refresco remoto en background
+    // refresco remoto (Supabase) en background
     Future(() async {
       try {
-        final api = ref.read(recurringBlocksApiProvider);
-        final remote = await api.fetchAll()
+        final repo = ref.read(recurringBlocksSupabaseRepoProvider);
+        final remote = await repo.fetchAll()
           ..sort((a, b) => a.startMinutes.compareTo(b.startMinutes));
 
         state = remote;
@@ -27,7 +27,7 @@ class RecurringBlocksController extends Notifier<List<RecurringBlock>> {
 
   Future<void> add(RecurringBlock b) async {
     final local = ref.read(recurringBlocksLocalRepoProvider);
-    final api = ref.read(recurringBlocksApiProvider);
+    final repo = ref.read(recurringBlocksSupabaseRepoProvider);
 
     final previous = state;
     final updated = [...state, b]..sort((a, b) => a.startMinutes.compareTo(b.startMinutes));
@@ -36,7 +36,7 @@ class RecurringBlocksController extends Notifier<List<RecurringBlock>> {
     await local.save(updated);
 
     try {
-      await api.create(b);
+      await repo.create(b);
     } catch (e) {
       state = previous;
       await local.save(previous);
@@ -46,7 +46,7 @@ class RecurringBlocksController extends Notifier<List<RecurringBlock>> {
 
   Future<void> removeById(String id) async {
     final local = ref.read(recurringBlocksLocalRepoProvider);
-    final api = ref.read(recurringBlocksApiProvider);
+    final repo = ref.read(recurringBlocksSupabaseRepoProvider);
 
     final previous = state;
     final updated = state.where((x) => x.id != id).toList();
@@ -55,7 +55,7 @@ class RecurringBlocksController extends Notifier<List<RecurringBlock>> {
     await local.save(updated);
 
     try {
-      await api.deleteById(id);
+      await repo.deleteById(id);
     } catch (e) {
       state = previous;
       await local.save(previous);
@@ -65,7 +65,7 @@ class RecurringBlocksController extends Notifier<List<RecurringBlock>> {
 
   Future<void> toggle(String id, bool active) async {
     final local = ref.read(recurringBlocksLocalRepoProvider);
-    final api = ref.read(recurringBlocksApiProvider);
+    final repo = ref.read(recurringBlocksSupabaseRepoProvider);
 
     final previous = state;
     final updated = [
@@ -87,7 +87,7 @@ class RecurringBlocksController extends Notifier<List<RecurringBlock>> {
     await local.save(updated);
 
     try {
-      await api.setActive(id, active);
+      await repo.setActive(id, active);
     } catch (e) {
       state = previous;
       await local.save(previous);

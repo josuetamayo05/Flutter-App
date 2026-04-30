@@ -13,7 +13,15 @@ class RecurringBlocksScreen extends ConsumerWidget {
   }
 
   String _weekdaysLabel(List<int> days) {
-    const names = {1:'Lun',2:'Mar',3:'Mié',4:'Jue',5:'Vie',6:'Sáb',7:'Dom'};
+    const names = {
+      1: 'Lun',
+      2: 'Mar',
+      3: 'Mié',
+      4: 'Jue',
+      5: 'Vie',
+      6: 'Sáb',
+      7: 'Dom',
+    };
     final sorted = [...days]..sort();
     return sorted.map((d) => names[d]).join(', ');
   }
@@ -47,11 +55,15 @@ class RecurringBlocksScreen extends ConsumerWidget {
                     children: [
                       Switch(
                         value: b.active,
-                        onChanged: (v) => ref.read(recurringBlocksProvider.notifier).toggle(b.id, v),
+                        onChanged: (v) => ref
+                            .read(recurringBlocksProvider.notifier)
+                            .toggle(b.id, v),
                       ),
                       IconButton(
                         icon: const Icon(Icons.delete_outline),
-                        onPressed: () => ref.read(recurringBlocksProvider.notifier).removeById(b.id),
+                        onPressed: () => ref
+                            .read(recurringBlocksProvider.notifier)
+                            .removeById(b.id),
                       ),
                     ],
                   ),
