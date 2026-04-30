@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:dio/dio.dart';
 import '../../models/appointment.dart';
 import '../../utils/overlaps.dart';
 import '../blocks/time_blocks_controller.dart';
@@ -10,7 +9,8 @@ import '../../models/services_provider.dart';
 import '../settings/work_hours_controller.dart';
 import 'appointments_controller.dart';
 import '../blocks/recurring_blocks_controller.dart';
-
+import 'package:uuid/uuid.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 class CreateAppointmentScreen extends ConsumerStatefulWidget {
   final DateTime? initialDay; // date-only (yyyy-mm-dd)
   const CreateAppointmentScreen({super.key, this.initialDay});
@@ -105,7 +105,7 @@ class _CreateAppointmentScreenState
     final service = services.firstWhere((s) => s.id == _serviceId);
 
     final a = Appointment(
-      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      id: const Uuid().v4(), // ✅ bien para uuid en Supabase
       clientName: _nameCtrl.text.trim(),
       serviceId: service.id,
       durationMinutes: service.durationMinutes,
@@ -124,15 +124,22 @@ class _CreateAppointmentScreenState
       }
 
       context.pop();
-    } on DioException catch (e) {
-      debugPrint('TYPE: ${e.type}');
-      debugPrint('MESSAGE: ${e.message}');
-      debugPrint('ERROR: ${e.error}');
-      debugPrint('STATUS: ${e.response?.statusCode}');
-      debugPrint('RESP DATA: ${e.response?.data}');
-      debugPrint('SENT JSON: ${a.toJson()}');
-    }
+    } on PostgrestException catch (e) {
+      // Error real de Supabase (RLS, columnas, uuid, etc.)
+      debugPrint('PostgrestException: ${e.message} code=${e.code} details=${e.details}');
+      debugPrint('SENT (supabase): ${a.toSupabase()}'); // usa tu mapper snake_case
 
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error BD: ${e.message}')),
+      );
+    } catch (e) {
+      debugPrint('UNKNOWN ERROR: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error guardando el turno')),
+      );
+    }
   }
 
   @override
