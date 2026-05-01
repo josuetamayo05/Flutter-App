@@ -40,4 +40,13 @@ class TimeBlocksSupabaseRepo {
   Future<void> deleteById(String id) async {
     await client.from('time_blocks').delete().eq('id', id);
   }
+
+  Stream<List<TimeBlock>> streamAll(String userId) {
+    return client
+        .from('time_blocks')
+        .stream(primaryKey: ['id'])
+        .eq('user_id', userId)
+        .order('starts_at', ascending: true)
+        .map((rows) => rows.map(TimeBlock.fromSupabase).toList());
+  }
 }

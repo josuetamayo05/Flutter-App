@@ -2,25 +2,32 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/recurring_block.dart';
 import '../../storage/recurring_blocks_local_repo_provider.dart';
 import 'recurring_blocks_supabase_repo_provider.dart';
+import 'dart:async';
+import '../../supabase/supabase_client_provider.dart';
 
 class RecurringBlocksController extends Notifier<List<RecurringBlock>> {
   @override
+  StreamSubscription<List<RecurringBlock>>? _sub;
+
+  @override
   List<RecurringBlock> build() {
+    final client = ref.read(supabaseClientProvider);
+    final userId = client.auth.currentUser?.id;
+
     final local = ref.read(recurringBlocksLocalRepoProvider);
+    final repo = ref.read(recurringBlocksSupabaseRepoProvider);
+
     final cached = local.load()
       ..sort((a, b) => a.startMinutes.compareTo(b.startMinutes));
 
-    // refresco remoto (Supabase) en background
-    Future(() async {
-      try {
-        final repo = ref.read(recurringBlocksSupabaseRepoProvider);
-        final remote = await repo.fetchAll()
-          ..sort((a, b) => a.startMinutes.compareTo(b.startMinutes));
+    if (userId != null) {
+      _sub = repo.streamAll(userId).listen((items) async {
+        state = items;
+        await local.save(items);
+      });
 
-        state = remote;
-        await local.save(remote);
-      } catch (_) {}
-    });
+      ref.onDispose(() => _sub?.cancel());
+    }
 
     return cached;
   }

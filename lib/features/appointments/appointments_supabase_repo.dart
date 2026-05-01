@@ -22,4 +22,13 @@ class AppointmentsSupabaseRepo {
   Future<void> deleteById(String id) async {
     await client.from('appointments').delete().eq('id', id);
   }
+
+  Stream<List<Appointment>> streamAll(String userId) {
+    return client
+        .from('appointments')
+        .stream(primaryKey: ['id'])
+        .eq('user_id', userId)
+        .order('date_time', ascending: true)
+        .map((rows) => rows.map(Appointment.fromSupabase).toList());
+  }  
 }

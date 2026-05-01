@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
+import 'dart:async';
+import '../../supabase/supabase_client_provider.dart';
 import '../../models/appointment.dart';
 import '../../storage/appointments_local_repo_provider.dart';
 import '../../utils/overlaps.dart';
@@ -8,19 +9,38 @@ import '../blocks/recurring_blocks_supabase_repo_provider.dart';
 import 'appointments_supabase_repo_provider.dart';
 
 class AppointmentsController extends AsyncNotifier<List<Appointment>> {
+  StreamSubscription<List<Appointment>>? _sub;
+
   @override
   Future<List<Appointment>> build() async {
+    final client = ref.read(supabaseClientProvider);
+    final userId = client.auth.currentUser?.id;
+
     final local = ref.read(appointmentsLocalRepoProvider);
     final repo = ref.read(appointmentsSupabaseRepoProvider);
 
+    if (userId == null) return [];
+
+    // carga inicial
+    List<Appointment> initial;
     try {
-      final remote = await repo.fetchAll();
-      await local.save(remote);
-      return remote;
+      initial = await repo.fetchAll();
+      await local.save(initial);
     } catch (_) {
-      // fallback offline
-      return local.load();
+      initial = local.load();
     }
+
+    // realtime
+    _sub = repo.streamAll(userId).listen((items) async {
+      state = AsyncData(items);
+      await local.save(items);
+    }, onError: (e, st) {
+      state = AsyncError(e, st);
+    });
+
+    ref.onDispose(() => _sub?.cancel());
+
+    return initial;
   }
 
   Future<bool> add(Appointment a) async {

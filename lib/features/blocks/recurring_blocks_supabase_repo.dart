@@ -26,4 +26,13 @@ class RecurringBlocksSupabaseRepo {
   Future<void> setActive(String id, bool active) async {
     await client.from('recurring_blocks').update({'active': active}).eq('id', id);
   }
+
+  Stream<List<RecurringBlock>> streamAll(String userId) {
+    return client 
+        .from('recurring_blocks')
+        .stream(primaryKey: ['id'])
+        .eq('user_id', userId)
+        .order('start_minutes', ascending: true)
+        .map((rows) => rows.map(RecurringBlock.fromSupabase).toList());
+  }
 }
