@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'router.dart';
-
+import 'core/theme/app_theme.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 class App extends ConsumerWidget {
   const App({super.key});
 
@@ -10,9 +11,20 @@ class App extends ConsumerWidget {
     final router = ref.watch(routerProvider);
 
     return MaterialApp.router(
-      title: 'Turnos',
-      theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.indigo),
+      debugShowCheckedModeBanner: false,
+      title: 'Citas',
+      theme: AppTheme.darkTheme, // si ya lo tienes
       routerConfig: router,
+
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('es'),
+        Locale('en'),
+      ],
     );
   }
 }

@@ -5,10 +5,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app.dart';
 import 'storage/shared_prefs_provider.dart';
 import 'supabase/supabase_config.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
+  await initializeDateFormatting('es');
   await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
 
   final prefs = await SharedPreferences.getInstance();
