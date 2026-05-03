@@ -32,8 +32,6 @@ class _CreateAppointmentScreenState
   DateTime? _selectedDay; // date-only
   DateTime? _selectedDateTime; // slot elegido (fecha+hora)
 
-  static const _slotStepMinutes = 30;
-
   @override
   void initState() {
     super.initState();
@@ -79,6 +77,7 @@ class _CreateAppointmentScreenState
     required int durationMinutes,
     required int openHour,
     required int closeHour,
+    required int stepMinutes,
     required List<DateTimeRange> busy,
   }) {
     final open = DateTime(day.year, day.month, day.day, openHour, 0);
@@ -89,10 +88,9 @@ class _CreateAppointmentScreenState
     for (
       var t = open;
       !t.add(Duration(minutes: durationMinutes)).isAfter(close);
-      t = t.add(const Duration(minutes: _slotStepMinutes))
+      t = t.add(Duration(minutes: stepMinutes))
     ) {
       final tEnd = t.add(Duration(minutes: durationMinutes));
-
       final conflict = busy.any((r) => overlaps(t, tEnd, r.start, r.end));
       if (!conflict) slots.add(t);
     }
@@ -159,7 +157,7 @@ class _CreateAppointmentScreenState
 
   @override
   Widget build(BuildContext context) {
-    final workHours = ref.watch(workHoursProvider);
+    final workHoursAsync = ref.watch(workHoursProvider);
 
     final eventTypesAsync = ref.watch(eventTypesProvider);
     final appointmentsAsync = ref.watch(appointmentsProvider);
@@ -169,188 +167,99 @@ class _CreateAppointmentScreenState
 
     return Scaffold(
       appBar: AppBar(title: const Text('Crear turno')),
-      body: eventTypesAsync.when(
+      body: workHoursAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) =>
-            Center(child: Text('Error cargando tipos de evento: $e')),
-        data: (eventTypes) {
-          final activeTypes = eventTypes.where((e) => e.active).toList();
+        error: (e, _) => Center(child: Text('Error cargando horario: $e')),
+        data: (workHours) {
+          // AQUÍ ya puedes usar workHours.openHour / closeHour / slotStepMinutes
 
-          EventType? selectedType;
-          if (_eventTypeId != null) {
-            for (final t in eventTypes) {
-              if (t.id == _eventTypeId) selectedType = t;
-            }
-          }
-
-          // aquí dentro metes tu appointmentsAsync.when(...) tal como lo tenías
-          return appointmentsAsync.when(
+          return eventTypesAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(child: Text('Error: $e')),
-            data: (appointments) => blocksAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('Error: $e')),
-              data: (blocks) {
-                // Busy ranges del día: turnos + bloqueos (+ recurrentes)
-                final busy = <DateTimeRange>[];
+            error: (e, _) =>
+                Center(child: Text('Error cargando tipos de evento: $e')),
+            data: (eventTypes) {
+              final activeTypes = eventTypes.where((e) => e.active).toList();
 
-                if (_selectedDay != null) {
-                  final day = _selectedDay!;
-
-                  // Turnos del día
-                  for (final a in appointments) {
-                    final sameDay =
-                        a.dateTime.year == day.year &&
-                        a.dateTime.month == day.month &&
-                        a.dateTime.day == day.day;
-                    if (sameDay) {
-                      busy.add(
-                        DateTimeRange(start: a.dateTime, end: a.endDateTime),
-                      );
-                    }
-                  }
-
-                  // Bloqueos puntuales del día
-                  for (final b in blocks) {
-                    final sameDay =
-                        b.start.year == day.year &&
-                        b.start.month == day.month &&
-                        b.start.day == day.day;
-                    if (sameDay) {
-                      busy.add(DateTimeRange(start: b.start, end: b.end));
-                    }
-                  }
-
-                  // Bloqueos recurrentes del día
-                  final recurring = ref.watch(recurringBlocksProvider);
-                  for (final r in recurring) {
-                    if (!r.active) continue;
-                    if (!r.weekdays.contains(day.weekday)) continue;
-
-                    final start = DateTime(
-                      day.year,
-                      day.month,
-                      day.day,
-                    ).add(Duration(minutes: r.startMinutes));
-                    final end = start.add(Duration(minutes: r.durationMinutes));
-                    busy.add(DateTimeRange(start: start, end: end));
-                  }
+              EventType? selectedType;
+              if (_eventTypeId != null) {
+                for (final t in eventTypes) {
+                  if (t.id == _eventTypeId) selectedType = t;
                 }
+              }
 
-                final slots = (_selectedDay != null && selectedType != null)
-                    ? _availableSlots(
-                        day: _selectedDay!,
-                        durationMinutes: selectedType.durationMinutes,
-                        openHour: workHours.openHour,
-                        closeHour: workHours.closeHour,
-                        busy: busy,
-                      )
-                    : <DateTime>[];
+              return appointmentsAsync.when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (e, _) => Center(child: Text('Error: $e')),
+                data: (appointments) => blocksAsync.when(
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
+                  error: (e, _) => Center(child: Text('Error: $e')),
+                  data: (blocks) {
+                    final busy = <DateTimeRange>[];
 
-                return Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      children: [
-                        TextFormField(
-                          controller: _nameCtrl,
-                          decoration: const InputDecoration(
-                            labelText: 'Nombre del cliente',
-                          ),
-                          validator: (v) => (v == null || v.trim().isEmpty)
-                              ? 'Requerido'
-                              : null,
-                        ),
-                        const SizedBox(height: 12),
+                    if (_selectedDay != null) {
+                      final day = _selectedDay!;
 
-                        DropdownButtonFormField<String>(
-                          value: _eventTypeId,
-                          decoration: const InputDecoration(
-                            labelText: 'Tipo de evento',
-                          ),
-                          items: activeTypes
-                              .map(
-                                (t) => DropdownMenuItem(
-                                  value: t.id,
-                                  child: Text(
-                                    '${t.name} (${t.durationMinutes} min)',
-                                  ),
-                                ),
-                              )
-                              .toList(),
-                          onChanged: (v) {
-                            setState(() {
-                              _eventTypeId = v;
-                              _selectedDateTime = null;
-                            });
-                          },
-                        ),
-
-                        if (activeTypes.isEmpty) ...[
-                          const SizedBox(height: 12),
-                          TextButton(
-                            onPressed: () => context.go('/event-types'),
-                            child: const Text('Crear tipos de evento'),
-                          ),
-                        ],
-
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                _selectedDay == null
-                                    ? 'Selecciona un dssía'
-                                    : 'Día: ${dfDay.format(_selectedDay!)}',
-                              ),
+                      for (final a in appointments) {
+                        final sameDay =
+                            a.dateTime.year == day.year &&
+                            a.dateTime.month == day.month &&
+                            a.dateTime.day == day.day;
+                        if (sameDay) {
+                          busy.add(
+                            DateTimeRange(
+                              start: a.dateTime,
+                              end: a.endDateTime,
                             ),
-                            TextButton(
-                              onPressed: _pickDay,
-                              child: const Text('Elegir día'),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
+                          );
+                        }
+                      }
 
-                        if (_selectedDay != null && _eventTypeId != null) ...[
-                          Text(
-                            'Horarios disponibles (cada 30 min) • '
-                            '${workHours.openHour.toString().padLeft(2, '0')}:00 - '
-                            '${workHours.closeHour.toString().padLeft(2, '0')}:00',
-                          ),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: slots.map((t) {
-                              final selected = _selectedDateTime == t;
-                              return ChoiceChip(
-                                label: Text(dfTime.format(t)),
-                                selected: selected,
-                                onSelected: (_) =>
-                                    setState(() => _selectedDateTime = t),
-                              );
-                            }).toList(),
-                          ),
-                          if (slots.isEmpty) ...[
-                            const SizedBox(height: 8),
-                            const Text(
-                              'No hay horarios disponibles para ese día/servicio.',
-                            ),
-                          ],
-                        ],
+                      for (final b in blocks) {
+                        final sameDay =
+                            b.start.year == day.year &&
+                            b.start.month == day.month &&
+                            b.start.day == day.day;
+                        if (sameDay) {
+                          busy.add(DateTimeRange(start: b.start, end: b.end));
+                        }
+                      }
 
-                        const Spacer(),
-                        FilledButton(
-                          onPressed: _submit,
-                          child: const Text('Guardar'),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
+                      final recurring = ref.watch(recurringBlocksProvider);
+                      for (final r in recurring) {
+                        if (!r.active) continue;
+                        if (!r.weekdays.contains(day.weekday)) continue;
+
+                        final start = DateTime(
+                          day.year,
+                          day.month,
+                          day.day,
+                        ).add(Duration(minutes: r.startMinutes));
+                        final end = start.add(
+                          Duration(minutes: r.durationMinutes),
+                        );
+                        busy.add(DateTimeRange(start: start, end: end));
+                      }
+                    }
+
+                    final slots = (_selectedDay != null && selectedType != null)
+                        ? _availableSlots(
+                            day: _selectedDay!,
+                            durationMinutes: selectedType.durationMinutes,
+                            openHour: workHours.openHour,
+                            closeHour: workHours.closeHour,
+                            stepMinutes: workHours
+                                .slotStepMinutes, // <-- aquí usas el intervalo del usuario
+                            busy: busy,
+                          )
+                        : <DateTime>[];
+
+                    // ... el resto de tu UI igual ...
+                    return /* tu Padding/Form/etc */;
+                  },
+                ),
+              );
+            },
           );
         },
       ),

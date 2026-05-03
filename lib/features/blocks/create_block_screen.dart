@@ -26,7 +26,6 @@ class _CreateBlockScreenState extends ConsumerState<CreateBlockScreen> {
   DateTime? _start;
   int _durationMinutes = 60;
 
-  static const _stepMinutes = 30;
 
   @override
   void initState() {
@@ -50,6 +49,7 @@ class _CreateBlockScreenState extends ConsumerState<CreateBlockScreen> {
     required DateTime day,
     required int openHour,
     required int closeHour,
+    required int stepMinutes,
     required List<DateTimeRange> busy,
     required int durationMinutes,
   }) {
@@ -60,7 +60,7 @@ class _CreateBlockScreenState extends ConsumerState<CreateBlockScreen> {
     for (
       var t = open;
       !t.add(Duration(minutes: durationMinutes)).isAfter(close);
-      t = t.add(const Duration(minutes: _stepMinutes))
+      t = t.add(Duration(minutes: stepMinutes))
     ) {
       final tEnd = t.add(Duration(minutes: durationMinutes));
       final conflict = busy.any((r) => overlaps(t, tEnd, r.start, r.end));
@@ -119,7 +119,7 @@ class _CreateBlockScreenState extends ConsumerState<CreateBlockScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final workHours = ref.watch(workHoursProvider);
+    final workHoursAsync = ref.watch(workHoursProvider);
     final apptAsync = ref.watch(appointmentsProvider);
     final blocksAsync = ref.watch(timeBlocksProvider);
 
@@ -128,139 +128,145 @@ class _CreateBlockScreenState extends ConsumerState<CreateBlockScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Bloquear horario')),
-      body: apptAsync.when(
+      body: workHoursAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
-        data: (appts) => blocksAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Center(child: Text('Error: $e')),
-          data: (blocks) {
-            final day = _day;
-            final busy = <DateTimeRange>[];
-            final recurring = ref.watch(recurringBlocksProvider);
+        error: (e, _) => Center(child: Text('Error cargando horario: $e')),
+        data: (workHours) {
+          return apptAsync.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => Center(child: Text('Error: $e')),
+            data: (appts) => blocksAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(child: Text('Error: $e')),
+              data: (blocks) {
+                final day = _day;
+                final busy = <DateTimeRange>[];
+                final recurring = ref.watch(recurringBlocksProvider);
 
-            if (day != null) {
-              // busy = turnos + bloqueos del mismo día
-              for (final a in appts) {
-                if (a.dateTime.year == day.year &&
-                    a.dateTime.month == day.month &&
-                    a.dateTime.day == day.day) {
-                  busy.add(
-                    DateTimeRange(start: a.dateTime, end: a.endDateTime),
-                  );
+                if (day != null) {
+                  for (final a in appts) {
+                    if (a.dateTime.year == day.year &&
+                        a.dateTime.month == day.month &&
+                        a.dateTime.day == day.day) {
+                      busy.add(DateTimeRange(start: a.dateTime, end: a.endDateTime));
+                    }
+                  }
+
+                  for (final b in blocks) {
+                    if (b.start.year == day.year &&
+                        b.start.month == day.month &&
+                        b.start.day == day.day) {
+                      busy.add(DateTimeRange(start: b.start, end: b.end));
+                    }
+                  }
+
+                  for (final r in recurring) {
+                    if (!r.active) continue;
+                    if (!r.weekdays.contains(day.weekday)) continue;
+
+                    final start = DateTime(day.year, day.month, day.day)
+                        .add(Duration(minutes: r.startMinutes));
+                    final end = start.add(Duration(minutes: r.durationMinutes));
+                    busy.add(DateTimeRange(start: start, end: end));
+                  }
                 }
-              }
-              for (final b in blocks) {
-                if (b.start.year == day.year &&
-                    b.start.month == day.month &&
-                    b.start.day == day.day) {
-                  busy.add(DateTimeRange(start: b.start, end: b.end));
-                }
-              }
-              for (final r in recurring) {
-                if (!r.active) continue;
-                if (!r.weekdays.contains(day.weekday)) continue;
 
-                final start = DateTime(day.year, day.month, day.day)
-                    .add(Duration(minutes: r.startMinutes));
-                final end = start.add(Duration(minutes: r.durationMinutes));
-                busy.add(DateTimeRange(start: start, end: end));
-              }
-            }
+                final slots = (day == null)
+                    ? <DateTime>[]
+                    : _startSlots(
+                        day: day,
+                        openHour: workHours.openHour,
+                        closeHour: workHours.closeHour,
+                        stepMinutes: workHours.slotStepMinutes, // <-- intervalo del usuario
+                        busy: busy,
+                        durationMinutes: _durationMinutes,
+                      );
 
-            final slots = (day == null)
-                ? <DateTime>[]
-                : _startSlots(
-                    day: day,
-                    openHour: workHours.openHour,
-                    closeHour: workHours.closeHour,
-                    busy: busy,
-                    durationMinutes: _durationMinutes,
-                  );
-
-            return Padding(
-              padding: const EdgeInsets.all(16),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    TextFormField(
-                      controller: _titleCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Motivo (ej: Almuerzo)',
-                      ),
-                      validator: (v) =>
-                          (v == null || v.trim().isEmpty) ? 'Requerido' : null,
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
+                return Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Expanded(
-                          child: Text(
-                            day == null
-                                ? 'Selecciona un día'
-                                : 'Día: ${dfDay.format(day)}',
+                        TextFormField(
+                          controller: _titleCtrl,
+                          decoration: const InputDecoration(
+                            labelText: 'Motivo (ej: Almuerzo)',
                           ),
+                          validator: (v) =>
+                              (v == null || v.trim().isEmpty) ? 'Requerido' : null,
                         ),
-                        TextButton(
-                          onPressed: _pickDay,
-                          child: const Text('Elegir día'),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<int>(
-                      value: _durationMinutes,
-                      decoration: const InputDecoration(labelText: 'Duración'),
-                      items: const [30, 60, 90, 120]
-                          .map(
-                            (m) => DropdownMenuItem(
-                              value: m,
-                              child: Text('$m min'),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                day == null
+                                    ? 'Selecciona un día'
+                                    : 'Día: ${dfDay.format(day)}',
+                              ),
                             ),
-                          )
-                          .toList(),
-                      onChanged: (v) {
-                        if (v == null) return;
-                        setState(() {
-                          _durationMinutes = v;
-                          _start = null;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    if (day != null) ...[
-                      const Text('Inicio (cada 30 min):'),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: slots.map((t) {
-                          final selected = _start == t;
-                          return ChoiceChip(
-                            label: Text(dfTime.format(t)),
-                            selected: selected,
-                            onSelected: (_) => setState(() => _start = t),
-                          );
-                        }).toList(),
-                      ),
-                      if (slots.isEmpty) ...[
+                            TextButton(
+                              onPressed: _pickDay,
+                              child: const Text('Elegir día'),
+                            ),
+                          ],
+                        ),
                         const SizedBox(height: 8),
-                        const Text('No hay horarios libres para ese día.'),
+                        DropdownButtonFormField<int>(
+                          value: _durationMinutes,
+                          decoration: const InputDecoration(labelText: 'Duración'),
+                          items: const [30, 60, 90, 120]
+                              .map(
+                                (m) => DropdownMenuItem(
+                                  value: m,
+                                  child: Text('$m min'),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (v) {
+                            if (v == null) return;
+                            setState(() {
+                              _durationMinutes = v;
+                              _start = null;
+                            });
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        if (day != null) ...[
+                          Text('Inicio (cada ${workHours.slotStepMinutes} min):'),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: slots.map((t) {
+                              final selected = _start == t;
+                              return ChoiceChip(
+                                label: Text(dfTime.format(t)),
+                                selected: selected,
+                                onSelected: (_) => setState(() => _start = t),
+                              );
+                            }).toList(),
+                          ),
+                          if (slots.isEmpty) ...[
+                            const SizedBox(height: 8),
+                            const Text('No hay horarios libres para ese día.'),
+                          ],
+                        ],
+                        const Spacer(),
+                        FilledButton(
+                          onPressed: () => _save(busy),
+                          child: const Text('Guardar bloqueo'),
+                        ),
                       ],
-                    ],
-                    const Spacer(),
-                    FilledButton(
-                      onPressed: () => _save(busy),
-                      child: const Text('Guardar bloqueo'),
                     ),
-                  ],
-                ),
-              ),
-            );
-          },
-        ),
+                  ),
+                );
+              },
+            ),
+          );
+        },
       ),
     );
   }
