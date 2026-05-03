@@ -13,6 +13,7 @@ import 'features/blocks/create_block_screen.dart';
 import 'features/blocks/recurring_blocks_screen.dart';
 import 'features/blocks/create_recurring_block_screen.dart';
 import 'features/settings/settings_screen.dart';
+import 'features/event_types/event_types_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final auth = ref.watch(authProvider);
@@ -52,18 +53,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
-      GoRoute(
-        path: '/splash',
-        builder: (_, __) => const SplashScreen(),
-      ),
-      GoRoute(
-        path: '/login',
-        builder: (_, __) => const LoginScreen(),
-      ),
-      GoRoute(
-        path: '/register',
-        builder: (_, __) => const RegisterScreen(),
-      ),
+      GoRoute(path: '/splash', builder: (_, __) => const SplashScreen()),
+      GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
+      GoRoute(path: '/register', builder: (_, __) => const RegisterScreen()),
       GoRoute(
         path: '/',
         builder: (_, __) => const AgendaScreen(),
@@ -86,8 +78,18 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(path: 'settings', builder: (_, __) => const SettingsScreen()),
           GoRoute(path: 'all', builder: (_, __) => const AppointmentsScreen()),
-          GoRoute(path: 'recurring', builder: (_, __) => const RecurringBlocksScreen()),
-          GoRoute(path: 'recurring/create', builder: (_, __) => const CreateRecurringBlockScreen()),
+          GoRoute(
+            path: 'recurring',
+            builder: (_, __) => const RecurringBlocksScreen(),
+          ),
+          GoRoute(
+            path: 'recurring/create',
+            builder: (_, __) => const CreateRecurringBlockScreen(),
+          ),
+          GoRoute(
+            path: 'event-types',
+            builder: (_, __) => const EventTypesScreen(),
+          ),
         ],
       ),
     ],

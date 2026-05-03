@@ -87,6 +87,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               onTap: () => context.go('/recurring'),
             ),
             ListTile(
+              leading: const Icon(Icons.category_outlined),
+              title: const Text('Tipos de evento'),
+              subtitle: const Text('Duración, color y precio opcional'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.go('/event-types'),
+            ),
+            ListTile(
               leading: const Icon(Icons.logout),
               title: const Text('Cerrar sesión'),
               onTap: () => ref.read(authProvider.notifier).logout(),

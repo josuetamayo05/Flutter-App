@@ -2,18 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-
 import '../../models/time_block.dart';
 import '../../utils/dates.dart';
 import '../appointments/appointments_controller.dart';
 import '../blocks/time_blocks_controller.dart';
-import '../../models/services_provider.dart';
+import '../event_types/event_types_controller.dart';
 import 'selected_day_provider.dart';
 
 class AgendaScreen extends ConsumerWidget {
   const AgendaScreen({super.key});
 
-  Future<void> _pickDay(BuildContext context, WidgetRef ref, DateTime current) async {
+  Future<void> _pickDay(
+    BuildContext context,
+    WidgetRef ref,
+    DateTime current,
+  ) async {
     final picked = await showDatePicker(
       context: context,
       firstDate: DateTime(current.year - 1),
@@ -24,7 +27,10 @@ class AgendaScreen extends ConsumerWidget {
     ref.read(selectedDayProvider.notifier).state = dateOnly(picked);
   }
 
-  Future<bool> _confirmDelete(BuildContext context, {required String title}) async {
+  Future<bool> _confirmDelete(
+    BuildContext context, {
+    required String title,
+  }) async {
     return (await showDialog<bool>(
           context: context,
           builder: (_) => AlertDialog(
@@ -49,15 +55,13 @@ class AgendaScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final day = ref.watch(selectedDayProvider);
 
-    final services = ref.watch(servicesProvider);
-    String serviceName(String id) => services.firstWhere((s) => s.id == id).name;
-
     final dfTitle = DateFormat('EEE, dd MMM yyyy');
     final dfDayName = DateFormat('EEE', 'es');
     final dfTime = DateFormat('HH:mm');
 
     final appointmentsAsync = ref.watch(appointmentsProvider);
     final blocksAsync = ref.watch(timeBlocksProvider);
+    final eventTypesAsync = ref.watch(eventTypesProvider);
 
     final cs = Theme.of(context).colorScheme;
 
@@ -122,90 +126,134 @@ class AgendaScreen extends ConsumerWidget {
           _DayStrip(
             day: day,
             dfDayName: dfDayName,
-            onPrev: () => ref.read(selectedDayProvider.notifier).state = day.subtract(const Duration(days: 1)),
-            onNext: () => ref.read(selectedDayProvider.notifier).state = day.add(const Duration(days: 1)),
-            onSelect: (d) => ref.read(selectedDayProvider.notifier).state = dateOnly(d),
+            onPrev: () => ref.read(selectedDayProvider.notifier).state = day
+                .subtract(const Duration(days: 1)),
+            onNext: () => ref.read(selectedDayProvider.notifier).state = day
+                .add(const Duration(days: 1)),
+            onSelect: (d) =>
+                ref.read(selectedDayProvider.notifier).state = dateOnly(d),
           ),
 
           // Contenido principal
           Expanded(
-            child: appointmentsAsync.when(
+            child: eventTypesAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => _ErrorState(message: 'Error cargando citas: $e'),
-              data: (appts) => blocksAsync.when(
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (e, _) => _ErrorState(message: 'Error cargando bloqueos: $e'),
-                data: (blocks) {
-                  final dayAppts = appts.where((a) => isSameDay(a.dateTime, day)).toList()
-                    ..sort((x, y) => x.dateTime.compareTo(y.dateTime));
+              error: (e, _) =>
+                  _ErrorState(message: 'Error cargando tipos de evento: $e'),
+              data: (eventTypes) {
+                final typesById = {for (final t in eventTypes) t.id: t};
 
-                  final dayBlocks = blocks.where((b) => isSameDay(b.start, day)).toList()
-                    ..sort((x, y) => x.start.compareTo(y.start));
+                String eventName(String id) => typesById[id]?.name ?? 'Evento';
+                Color eventColor(String id) =>
+                    typesById[id]?.color ?? cs.primary;
 
-                  final entries = <_AgendaEntry>[];
+                return appointmentsAsync.when(
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
+                  error: (e, _) =>
+                      _ErrorState(message: 'Error cargando citas: $e'),
+                  data: (appts) => blocksAsync.when(
+                    loading: () =>
+                        const Center(child: CircularProgressIndicator()),
+                    error: (e, _) =>
+                        _ErrorState(message: 'Error cargando bloqueos: $e'),
+                    data: (blocks) {
+                      final dayAppts =
+                          appts
+                              .where((a) => isSameDay(a.dateTime, day))
+                              .toList()
+                            ..sort((x, y) => x.dateTime.compareTo(y.dateTime));
 
-                  for (final a in dayAppts) {
-                    entries.add(
-                      _AgendaEntry(
-                        start: a.dateTime,
-                        tile: _AgendaCard(
-                          barColor: cs.primary,
-                          time: '${dfTime.format(a.dateTime)} - ${dfTime.format(a.endDateTime)}',
-                          title: serviceName(a.serviceId),
-                          subtitle: a.clientName,
-                          leadingIcon: Icons.event_available_outlined,
-                          onDelete: () async {
-                            final ok = await _confirmDelete(context, title: 'esta cita');
-                            if (!ok) return;
-                            await ref.read(appointmentsProvider.notifier).removeById(a.id);
-                          },
-                        ),
-                      ),
-                    );
-                  }
+                      final dayBlocks =
+                          blocks.where((b) => isSameDay(b.start, day)).toList()
+                            ..sort((x, y) => x.start.compareTo(y.start));
 
-                  for (final TimeBlock b in dayBlocks) {
-                    entries.add(
-                      _AgendaEntry(
-                        start: b.start,
-                        tile: _AgendaCard(
-                          barColor: Colors.redAccent,
-                          time: '${dfTime.format(b.start)} - ${dfTime.format(b.end)}',
-                          title: 'Bloqueo',
-                          subtitle: b.title,
-                          leadingIcon: Icons.block_outlined,
-                          onDelete: () async {
-                            final ok = await _confirmDelete(context, title: 'este bloqueo');
-                            if (!ok) return;
-                            await ref.read(timeBlocksProvider.notifier).removeById(b.id);
-                          },
-                        ),
-                      ),
-                    );
-                  }
+                      final entries = <_AgendaEntry>[];
 
-                  entries.sort((a, b) => a.start.compareTo(b.start));
-
-                  return RefreshIndicator(
-                    onRefresh: () async {
-                      // Con Realtime no es necesario, pero es útil como fallback
-                      ref.invalidate(appointmentsProvider);
-                      ref.invalidate(timeBlocksProvider);
-                    },
-                    child: entries.isEmpty
-                        ? const _EmptyState(
-                            title: 'No hay eventos para este día',
-                            subtitle: 'Crea una cita o agrega un bloqueo.',
-                          )
-                        : ListView.separated(
-                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
-                            itemCount: entries.length,
-                            separatorBuilder: (_, __) => const SizedBox(height: 10),
-                            itemBuilder: (context, i) => entries[i].tile,
+                      for (final a in dayAppts) {
+                        entries.add(
+                          _AgendaEntry(
+                            start: a.dateTime,
+                            tile: _AgendaCard(
+                              barColor: eventColor(
+                                a.serviceId,
+                              ), // o a.eventTypeId si ya lo renombraste
+                              time:
+                                  '${dfTime.format(a.dateTime)} - ${dfTime.format(a.endDateTime)}',
+                              title: eventName(a.serviceId),
+                              subtitle: a.clientName,
+                              leadingIcon: Icons.event_available_outlined,
+                              onDelete: () async {
+                                final ok = await _confirmDelete(
+                                  context,
+                                  title: 'esta cita',
+                                );
+                                if (!ok) return;
+                                await ref
+                                    .read(appointmentsProvider.notifier)
+                                    .removeById(a.id);
+                              },
+                            ),
                           ),
-                  );
-                },
-              ),
+                        );
+                      }
+
+                      for (final TimeBlock b in dayBlocks) {
+                        entries.add(
+                          _AgendaEntry(
+                            start: b.start,
+                            tile: _AgendaCard(
+                              barColor: Colors.redAccent,
+                              time:
+                                  '${dfTime.format(b.start)} - ${dfTime.format(b.end)}',
+                              title: 'Bloqueo',
+                              subtitle: b.title,
+                              leadingIcon: Icons.block_outlined,
+                              onDelete: () async {
+                                final ok = await _confirmDelete(
+                                  context,
+                                  title: 'este bloqueo',
+                                );
+                                if (!ok) return;
+                                await ref
+                                    .read(timeBlocksProvider.notifier)
+                                    .removeById(b.id);
+                              },
+                            ),
+                          ),
+                        );
+                      }
+
+                      entries.sort((a, b) => a.start.compareTo(b.start));
+
+                      return RefreshIndicator(
+                        onRefresh: () async {
+                          ref.invalidate(eventTypesProvider);
+                          ref.invalidate(appointmentsProvider);
+                          ref.invalidate(timeBlocksProvider);
+                        },
+                        child: entries.isEmpty
+                            ? const _EmptyState(
+                                title: 'No hay eventos para este día',
+                                subtitle: 'Crea una cita o agrega un bloqueo.',
+                              )
+                            : ListView.separated(
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  12,
+                                  16,
+                                  120,
+                                ),
+                                itemCount: entries.length,
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(height: 10),
+                                itemBuilder: (context, i) => entries[i].tile,
+                              ),
+                      );
+                    },
+                  ),
+                );
+              },
             ),
           ),
         ],
@@ -239,10 +287,7 @@ class _DayStrip extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 6),
       child: Row(
         children: [
-          IconButton(
-            onPressed: onPrev,
-            icon: const Icon(Icons.chevron_left),
-          ),
+          IconButton(onPressed: onPrev, icon: const Icon(Icons.chevron_left)),
           Expanded(
             child: SizedBox(
               height: 72,
@@ -276,7 +321,9 @@ class _DayStrip extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
-                              color: selected ? cs.background : Colors.grey.shade400,
+                              color: selected
+                                  ? cs.background
+                                  : Colors.grey.shade400,
                             ),
                           ),
                           const SizedBox(height: 6),
@@ -296,10 +343,7 @@ class _DayStrip extends StatelessWidget {
               ),
             ),
           ),
-          IconButton(
-            onPressed: onNext,
-            icon: const Icon(Icons.chevron_right),
-          ),
+          IconButton(onPressed: onNext, icon: const Icon(Icons.chevron_right)),
         ],
       ),
     );
@@ -359,13 +403,13 @@ class _AgendaCard extends StatelessWidget {
                   const SizedBox(height: 6),
                   Text(
                     title,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                   const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: TextStyle(color: Colors.grey.shade400),
-                  ),
+                  Text(subtitle, style: TextStyle(color: Colors.grey.shade400)),
                 ],
               ),
             ),
@@ -397,7 +441,9 @@ class _EmptyState extends StatelessWidget {
         Text(
           title,
           textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: 8),
         Text(
